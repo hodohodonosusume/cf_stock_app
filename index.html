@@ -1,0 +1,2102 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>史上最高のチャートアプリ - AI分析対応</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #ffffff;
+            color: #333;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* サイドバー */
+        .sidebar {
+            width: 200px;
+            background: #f8f8f8;
+            border-right: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            overflow-x: hidden;
+            transition: margin-left 0.3s ease;
+            position: relative;
+            z-index: 50;
+            flex-shrink: 0;
+        }
+
+        .sidebar.collapsed {
+            margin-left: -200px;
+        }
+
+        /* サイドバー折りたたみボタン */
+        .sidebar-toggle {
+            position: fixed;
+            left: 200px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 35px;
+            height: 70px;
+            background: #1a73e8;
+            border: none;
+            border-radius: 0 12px 12px 0;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            z-index: 9999;
+            box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .sidebar.collapsed + .sidebar-toggle {
+            left: 0;
+        }
+
+        .sidebar-toggle:hover {
+            background: #1557b0;
+            width: 40px;
+        }
+
+        .sidebar-header {
+            padding: 16px;
+            border-bottom: 1px solid #e0e0e0;
+            background: #fff;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .tabs {
+            display: flex;
+            padding: 0;
+            border-bottom: 1px solid #e0e0e0;
+            background: #fff;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px 4px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 500;
+            border-bottom: 2px solid transparent;
+            color: #666;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            border-bottom-color: #1a73e8;
+            color: #1a73e8;
+            background: #f0f7ff;
+        }
+
+        .tab-btn:hover {
+            background: #f5f5f5;
+        }
+
+        .tab-content {
+            display: none;
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* AI分析ボタン */
+        .ai-analysis-section {
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+
+        .ai-analysis-btn {
+            width: 100%;
+            padding: 12px;
+            background: white;
+            color: #667eea;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .ai-analysis-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        }
+
+        .ai-analysis-btn:disabled {
+            background: #ccc;
+            color: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .ai-status {
+            color: white;
+            font-size: 11px;
+            text-align: center;
+            margin-top: 8px;
+            min-height: 16px;
+        }
+
+        /* 検索ボックス */
+        .search-box {
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .search-box input:focus {
+            border-color: #1a73e8;
+            box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.1);
+        }
+
+        /* リスト */
+        .stock-list {
+            list-style: none;
+        }
+
+        .stock-item {
+            padding: 10px 12px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .stock-item:hover {
+            background: #e3f2fd;
+        }
+
+        .stock-item.selected {
+            background: #bbdefb;
+            font-weight: 500;
+        }
+
+        .stock-item.ai-analyzed {
+            background: linear-gradient(90deg, #f0fff0 0%, #e8f5e9 100%);
+            border-left: 3px solid #4caf50;
+        }
+
+        .stock-code {
+            font-weight: bold;
+            color: #1a73e8;
+            display: block;
+            font-size: 12px;
+        }
+
+        .stock-name {
+            font-size: 11px;
+            color: #666;
+            display: block;
+            margin-top: 2px;
+            word-break: break-word;
+        }
+
+        .ai-prediction {
+            font-size: 10px;
+            color: #4caf50;
+            font-weight: bold;
+            display: block;
+            margin-top: 2px;
+        }
+
+        .stock-remove-btn {
+            background: #ff4444;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 2px 6px;
+            font-size: 10px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .stock-item:hover .stock-remove-btn {
+            opacity: 1;
+        }
+
+        .stock-remove-btn:hover {
+            background: #cc0000;
+        }
+
+        /* 業種・規模セレクター */
+        .selector-group {
+            padding: 12px;
+        }
+
+        .selector-group label {
+            display: block;
+            font-size: 11px;
+            font-weight: bold;
+            margin-bottom: 6px;
+            color: #333;
+        }
+
+        .selector-group select {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-bottom: 8px;
+            cursor: pointer;
+        }
+
+        .selector-group button {
+            width: 100%;
+            padding: 6px 12px;
+            background: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        .selector-group button:hover {
+            background: #1557b0;
+        }
+
+        /* メイン領域 */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* トップバー */
+        .top-bar {
+            padding: 12px 16px;
+            background: #fff;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 40;
+        }
+
+        .title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            font-size: 12px;
+        }
+
+        .control-btn {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            background: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .control-btn:hover {
+            background: #f5f5f5;
+        }
+
+        .control-btn.active {
+            background: #1a73e8;
+            color: white;
+            border-color: #1a73e8;
+        }
+
+        /* AI結果モーダル */
+        .ai-results-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .ai-results-modal.active {
+            display: flex;
+        }
+
+        .ai-results-content {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 90%;
+            max-height: 90%;
+            overflow-y: auto;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .ai-results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .ai-results-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .ai-results-close {
+            background: none;
+            border: none;
+            font-size: 28px;
+            color: #999;
+            cursor: pointer;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+        }
+
+        .ai-results-close:hover {
+            color: #333;
+        }
+
+        .ai-results-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        .ai-results-table th {
+            background: #f5f5f5;
+            padding: 10px;
+            text-align: left;
+            font-weight: bold;
+            border-bottom: 2px solid #ddd;
+            position: sticky;
+            top: 0;
+        }
+
+        .ai-results-table td {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .ai-results-table tr:hover {
+            background: #f9f9f9;
+        }
+
+        .prediction-high {
+            color: #4caf50;
+            font-weight: bold;
+        }
+
+        .prediction-medium {
+            color: #ff9800;
+            font-weight: bold;
+        }
+
+        .prediction-low {
+            color: #666;
+        }
+
+        /* スクロール可能エリア */
+        .scrollable-area {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        /* インデックス表示 */
+        .index-section {
+            padding: 8px 12px;
+            background: #fff;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .index-section-title {
+            font-size: 11px;
+            font-weight: bold;
+            margin-bottom: 6px;
+            color: #666;
+        }
+
+        .index-list {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding: 4px 0;
+        }
+
+        .index-item {
+            padding: 4px 10px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            font-size: 11px;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .index-item:hover {
+            background: #e0e0e0;
+        }
+
+        .index-value {
+            color: #1a73e8;
+            font-weight: bold;
+            margin-left: 4px;
+        }
+
+        .index-change {
+            font-size: 10px;
+            margin-left: 4px;
+        }
+
+        .index-change.positive {
+            color: #ff0000;
+        }
+
+        .index-change.negative {
+            color: #00aa00;
+        }
+
+        /* 平均インデックスチャート */
+        .aggregate-chart {
+            padding: 8px 12px;
+            background: #f9f9f9;
+            border-bottom: 2px solid #1a73e8;
+            display: none;
+        }
+
+        .aggregate-chart.active {
+            display: block;
+        }
+
+        .aggregate-header {
+            font-size: 12px;
+            font-weight: bold;
+            color: #1a73e8;
+            margin-bottom: 4px;
+        }
+
+        /* チャートコンテナ */
+        .chart-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            padding: 12px;
+        }
+
+        .chart-grid-1 { grid-template-columns: 1fr; }
+        .chart-grid-2 { grid-template-columns: repeat(2, 1fr); }
+        .chart-grid-3 { grid-template-columns: repeat(3, 1fr); }
+        .chart-grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+        .chart-card {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            height: 500px;
+            min-height: 500px;
+        }
+
+        .chart-header {
+            padding: 6px 12px;
+            border-bottom: 1px solid #e0e0e0;
+            background: #fafafa;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .chart-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .chart-title-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 2px;
+        }
+
+        .chart-code {
+            font-weight: bold;
+            color: #1a73e8;
+            font-size: 13px;
+        }
+
+        .chart-name {
+            font-size: 10px;
+            color: #666;
+        }
+
+        .chart-ai-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 9px;
+            font-weight: bold;
+        }
+
+        .chart-stats {
+            font-size: 10px;
+            color: #333;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            display: inline-block;
+        }
+
+        .stat-label {
+            color: #666;
+            margin-right: 2px;
+        }
+
+        .stat-value {
+            font-weight: bold;
+        }
+
+        .stat-value.positive {
+            color: #ff0000;
+        }
+
+        .stat-value.negative {
+            color: #00aa00;
+        }
+
+        .chart-close-btn {
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 0 5px;
+            align-self: flex-start;
+            flex-shrink: 0;
+        }
+
+        .chart-close-btn:hover {
+            color: #333;
+        }
+
+        .chart-canvas-wrapper {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .price-chart {
+            flex: 6;
+            position: relative;
+            min-height: 0;
+        }
+
+        .volume-chart {
+            flex: 1;
+            position: relative;
+            border-top: 1px solid #e0e0e0;
+            min-height: 50px;
+            max-height: 80px;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+            line-height: 1.6;
+        }
+
+        .tooltip.active {
+            display: block;
+        }
+
+        .indicator-panel {
+            padding: 6px 8px;
+            border-top: 1px solid #e0e0e0;
+            background: #fafafa;
+            font-size: 10px;
+            max-height: 50px;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+
+        .indicator-checkbox {
+            display: inline-block;
+            margin-right: 10px;
+            white-space: nowrap;
+        }
+
+        .indicator-checkbox input {
+            margin-right: 3px;
+            cursor: pointer;
+        }
+
+        .indicator-param input {
+            width: 35px;
+            padding: 2px 4px;
+            border: 1px solid #ccc;
+            border-radius: 2px;
+            font-size: 10px;
+        }
+
+        /* ローディングオーバーレイ */
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .loading-content {
+            text-align: center;
+            color: white;
+        }
+
+        .spinner {
+            border: 6px solid rgba(255, 255, 255, 0.3);
+            border-top: 6px solid #ffffff;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .loading-detail {
+            font-size: 14px;
+            color: #ccc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- サイドバー -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">銘柄選択</div>
+
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="selected">選択中</button>
+                <button class="tab-btn" data-tab="select">全銘柄</button>
+                <button class="tab-btn" data-tab="filter">絞込</button>
+            </div>
+
+            <!-- 選択中タブ -->
+            <div id="selected-tab" class="tab-content active">
+                <!-- AI分析ボタン -->
+                <div class="ai-analysis-section">
+                    <button class="ai-analysis-btn" id="ai-analysis-btn">
+                        🤖 AI分析実行
+                    </button>
+                    <div class="ai-status" id="ai-status"></div>
+                </div>
+
+                <div style="padding: 8px; font-size: 11px; color: #666;">
+                    選択中: <strong id="selected-count-sidebar">0</strong>銘柄
+                </div>
+                <ul id="selected-list" class="stock-list"></ul>
+            </div>
+
+            <!-- 全銘柄タブ -->
+            <div id="select-tab" class="tab-content">
+                <div class="search-box">
+                    <input type="text" id="select-search" placeholder="銘柄名で絞込..." autocomplete="off">
+                </div>
+                <ul id="stock-list" class="stock-list"></ul>
+            </div>
+
+            <!-- 絞込タブ -->
+            <div id="filter-tab" class="tab-content">
+                <div class="selector-group">
+                    <label>33業種区分</label>
+                    <select id="industry-select">
+                        <option value="">-- 業種を選択 --</option>
+                    </select>
+                    <button id="industry-select-btn">この業種を追加</button>
+                </div>
+                
+                <div class="selector-group" style="padding-top: 0;">
+                    <label>規模区分</label>
+                    <select id="size-select">
+                        <option value="">-- 規模を選択 --</option>
+                    </select>
+                    <button id="size-select-btn">この規模を追加</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- サイドバー折りたたみボタン -->
+        <button class="sidebar-toggle" id="sidebar-toggle">☰</button>
+
+        <!-- メイン -->
+        <div class="main">
+            <!-- トップバー -->
+            <div class="top-bar">
+                <div class="title">チャート（選択中: <span id="selected-count">0</span>銘柄）</div>
+                <div class="controls">
+                    <label>表示列：</label>
+                    <select id="grid-columns" style="padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="1">1列</option>
+                        <option value="2" selected>2列</option>
+                        <option value="3">3列</option>
+                        <option value="4">4列</option>
+                    </select>
+                    <label style="margin-left: 12px;">足：</label>
+                    <select id="interval-select" style="padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="1d" selected>日足</option>
+                        <option value="1wk">週足</option>
+                        <option value="1mo">月足</option>
+                    </select>
+                    <label style="margin-left: 12px;">期間：</label>
+                    <select id="period-select" style="padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="3mo">3ヶ月</option>
+                        <option value="6mo">6ヶ月</option>
+                        <option value="1y" selected>1年</option>
+                        <option value="2y">2年</option>
+                        <option value="5y">5年</option>
+                    </select>
+                    <button id="clear-all-btn" class="control-btn">すべてクリア</button>
+                </div>
+            </div>
+
+            <!-- スクロール可能エリア -->
+            <div class="scrollable-area">
+                <!-- インデックス表示 -->
+                <div class="index-section">
+                    <div class="index-section-title">指数・為替</div>
+                    <div class="index-list" id="index-list"></div>
+                </div>
+
+                <!-- 平均インデックスチャート -->
+                <div class="aggregate-chart" id="aggregate-chart">
+                    <div class="aggregate-header">📊 選択銘柄の平均インデックス</div>
+                    <div style="height: 140px; position: relative;">
+                        <canvas id="aggregate-canvas"></canvas>
+                    </div>
+                </div>
+
+                <!-- チャートコンテナ -->
+                <div id="chart-container" class="chart-container chart-grid-2"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI結果モーダル -->
+    <div class="ai-results-modal" id="ai-results-modal">
+        <div class="ai-results-content">
+            <div class="ai-results-header">
+                <div class="ai-results-title">🤖 AI分析結果</div>
+                <button class="ai-results-close" id="ai-results-close">×</button>
+            </div>
+            <div id="ai-results-body"></div>
+        </div>
+    </div>
+
+    <!-- ローディングオーバーレイ -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <div class="loading-text">データ取得中...</div>
+            <div class="loading-detail" id="loading-detail">お待ちください</div>
+        </div>
+    </div>
+
+    <script>
+        // グローバル状態
+        const state = {
+            allStocks: [],
+            selectedCodes: [],
+            charts: {},
+            aiPredictions: {},
+            gridColumns: 2,
+            interval: '1d',
+            period: '1y',
+            isLoading: false,
+            sidebarCollapsed: false
+        };
+
+        // (以下、既存のJavaScriptコードが続きます...)
+        // キリのいい数字を計算する関数
+        function getNiceNumber(value, round) {
+            const exponent = Math.floor(Math.log10(value));
+            const fraction = value / Math.pow(10, exponent);
+            let niceFraction;
+
+            if (round) {
+                if (fraction < 1.5) niceFraction = 1;
+                else if (fraction < 3) niceFraction = 2;
+                else if (fraction < 7) niceFraction = 5;
+                else niceFraction = 10;
+            } else {
+                if (fraction <= 1) niceFraction = 1;
+                else if (fraction <= 2) niceFraction = 2;
+                else if (fraction <= 5) niceFraction = 5;
+                else niceFraction = 10;
+            }
+
+            return niceFraction * Math.pow(10, exponent);
+        }
+
+        function calculateNiceScale(minValue, maxValue, maxTicks = 5) {
+            const range = getNiceNumber(maxValue - minValue, false);
+            const tickSpacing = getNiceNumber(range / (maxTicks - 1), true);
+            const niceMin = Math.floor(minValue / tickSpacing) * tickSpacing;
+            const niceMax = Math.ceil(maxValue / tickSpacing) * tickSpacing;
+
+            return {
+                min: niceMin,
+                max: niceMax,
+                tickSpacing: tickSpacing,
+                ticks: Math.round((niceMax - niceMin) / tickSpacing) + 1
+            };
+        }
+
+        function showLoading(show, detail = 'お待ちください') {
+            state.isLoading = show;
+            const overlay = document.getElementById('loading-overlay');
+            const detailElement = document.getElementById('loading-detail');
+            
+            if (show) {
+                detailElement.textContent = detail;
+                overlay.classList.add('active');
+            } else {
+                overlay.classList.remove('active');
+            }
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        async function init() {
+            try {
+                showLoading(true, '株式データを読み込み中...');
+
+                const response = await fetch('/api/stocks');
+                const data = await response.json();
+                state.allStocks = data.stocks;
+
+                populateSelectors(data);
+                renderStockList();
+                renderSelectedList();
+                setupEventListeners();
+                
+                showLoading(true, '指数データを読み込み中...');
+                await loadIndices();
+
+                showLoading(false);
+            } catch (error) {
+                console.error('Initial load error:', error);
+                alert('データの読み込みに失敗しました');
+                showLoading(false);
+            }
+        }
+
+        function populateSelectors(data) {
+            const industrySelect = document.getElementById('industry-select');
+            const sizeSelect = document.getElementById('size-select');
+
+            data.industries.forEach(ind => {
+                const option = document.createElement('option');
+                option.value = ind;
+                option.textContent = ind;
+                industrySelect.appendChild(option);
+            });
+
+            data.sizes.forEach(sz => {
+                const option = document.createElement('option');
+                option.value = sz;
+                option.textContent = sz;
+                sizeSelect.appendChild(option);
+            });
+        }
+
+        function renderStockList(searchQuery = '') {
+            const list = document.getElementById('stock-list');
+            list.innerHTML = '';
+
+            let filtered = state.allStocks;
+            if (searchQuery) {
+                filtered = filtered.filter(s =>
+                    s.code.includes(searchQuery.toUpperCase()) ||
+                    s.name.toUpperCase().includes(searchQuery.toUpperCase())
+                );
+            }
+
+            filtered.forEach(stock => {
+                const li = document.createElement('li');
+                li.className = 'stock-item';
+                if (state.selectedCodes.includes(stock.code)) {
+                    li.classList.add('selected');
+                }
+                li.innerHTML = `
+                    <div>
+                        <span class="stock-code">${stock.code}</span>
+                        <span class="stock-name">${stock.name}</span>
+                    </div>
+                `;
+                li.addEventListener('click', () => toggleStockSelection(stock.code));
+                list.appendChild(li);
+            });
+
+            updateSelectedCount();
+        }
+
+        function renderSelectedList() {
+            const list = document.getElementById('selected-list');
+            list.innerHTML = '';
+
+            if (state.selectedCodes.length === 0) {
+                list.innerHTML = '<li style="padding: 10px; text-align: center; color: #999; font-size: 11px;">銘柄を選択してください</li>';
+                return;
+            }
+
+            state.selectedCodes.forEach(code => {
+                const stock = state.allStocks.find(s => s.code === code);
+                const name = stock ? stock.name : code;
+                const aiPred = state.aiPredictions[code];
+                
+                const li = document.createElement('li');
+                li.className = 'stock-item';
+                if (aiPred) {
+                    li.classList.add('ai-analyzed');
+                }
+                
+                let predictionHTML = '';
+                if (aiPred) {
+                    predictionHTML = `<span class="ai-prediction">AI: ${(aiPred.prediction * 100).toFixed(1)}%</span>`;
+                }
+                
+                li.innerHTML = `
+                    <div>
+                        <span class="stock-code">${code}</span>
+                        <span class="stock-name">${name}</span>
+                        ${predictionHTML}
+                    </div>
+                    <button class="stock-remove-btn">削除</button>
+                `;
+                
+                const removeBtn = li.querySelector('.stock-remove-btn');
+                removeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    toggleStockSelection(code);
+                });
+                
+                list.appendChild(li);
+            });
+        }
+
+        async function toggleStockSelection(code) {
+            if (state.isLoading) return;
+
+            const index = state.selectedCodes.indexOf(code);
+            if (index > -1) {
+                state.selectedCodes.splice(index, 1);
+                delete state.aiPredictions[code];
+                if (state.charts[code]) {
+                    removeChart(code);
+                }
+            } else {
+                state.selectedCodes.push(code);
+                showLoading(true, `${code} のデータを取得中...`);
+                await addChart(code);
+                showLoading(false);
+            }
+
+            renderStockList(document.getElementById('select-search').value);
+            renderSelectedList();
+            updateAggregateChart();
+        }
+
+        function updateSelectedCount() {
+            document.getElementById('selected-count').textContent = state.selectedCodes.length;
+            document.getElementById('selected-count-sidebar').textContent = state.selectedCodes.length;
+        }
+
+        function setupEventListeners() {
+            // サイドバー折りたたみ
+            document.getElementById('sidebar-toggle').addEventListener('click', () => {
+                const sidebar = document.getElementById('sidebar');
+                state.sidebarCollapsed = !state.sidebarCollapsed;
+                if (state.sidebarCollapsed) {
+                    sidebar.classList.add('collapsed');
+                } else {
+                    sidebar.classList.remove('collapsed');
+                }
+            });
+
+            // タブ切り替え
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    e.target.classList.add('active');
+                    const tab = e.target.dataset.tab;
+                    document.getElementById(`${tab}-tab`).classList.add('active');
+                });
+            });
+
+            // AI分析ボタン
+            document.getElementById('ai-analysis-btn').addEventListener('click', runAIAnalysis);
+            document.getElementById('ai-results-close').addEventListener('click', () => {
+                document.getElementById('ai-results-modal').classList.remove('active');
+            });
+
+            // 検索入力
+            document.getElementById('select-search').addEventListener('input', (e) => {
+                renderStockList(e.target.value);
+            });
+
+            // 業種選択
+            document.getElementById('industry-select-btn').addEventListener('click', async () => {
+                const industry = document.getElementById('industry-select').value;
+                if (industry && !state.isLoading) {
+                    await selectByIndustry(industry);
+                }
+            });
+
+            // 規模選択
+            document.getElementById('size-select-btn').addEventListener('click', async () => {
+                const size = document.getElementById('size-select').value;
+                if (size && !state.isLoading) {
+                    await selectBySize(size);
+                }
+            });
+
+            // グリッド列数
+            document.getElementById('grid-columns').addEventListener('change', (e) => {
+                state.gridColumns = parseInt(e.target.value);
+                updateGridColumns();
+                setTimeout(() => {
+                    Object.keys(state.charts).forEach(code => {
+                        drawChart(code);
+                    });
+                }, 100);
+            });
+
+            // 足と期間
+            document.getElementById('interval-select').addEventListener('change', async (e) => {
+                if (!state.isLoading) {
+                    state.interval = e.target.value;
+                    await reloadAllCharts();
+                }
+            });
+
+            document.getElementById('period-select').addEventListener('change', async (e) => {
+                if (!state.isLoading) {
+                    state.period = e.target.value;
+                    await reloadAllCharts();
+                }
+            });
+
+            // クリアボタン
+            document.getElementById('clear-all-btn').addEventListener('click', () => {
+                if (!state.isLoading) {
+                    clearAll();
+                }
+            });
+        }
+
+        // AI分析実行
+        async function runAIAnalysis() {
+            if (state.selectedCodes.length === 0) {
+                alert('銘柄を選択してください');
+                return;
+            }
+
+            const btn = document.getElementById('ai-analysis-btn');
+            const statusEl = document.getElementById('ai-status');
+            
+            btn.disabled = true;
+            statusEl.textContent = '分析中...';
+
+            try {
+                const response = await fetch('/api/ai-predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        codes: state.selectedCodes
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('AI分析に失敗しました');
+                }
+
+                const data = await response.json();
+                
+                // 予測結果を保存
+                data.predictions.forEach(pred => {
+                    state.aiPredictions[pred.code] = pred;
+                });
+
+                // リスト更新
+                renderSelectedList();
+
+                // チャートに予測結果を追加
+                Object.keys(state.charts).forEach(code => {
+                    updateChartWithAIPrediction(code);
+                });
+
+                // 結果モーダルを表示
+                showAIResults(data.predictions);
+
+                statusEl.textContent = `✓ 完了 (${data.predictions.length}銘柄)`;
+                setTimeout(() => {
+                    statusEl.textContent = '';
+                }, 3000);
+
+            } catch (error) {
+                console.error('AI analysis error:', error);
+                alert('AI分析でエラーが発生しました: ' + error.message);
+                statusEl.textContent = '✗ エラー';
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function showAIResults(predictions) {
+            // 予測確率でソート
+            predictions.sort((a, b) => b.prediction - a.prediction);
+
+            let html = '<table class="ai-results-table"><thead><tr>';
+            html += '<th>順位</th><th>銘柄コード</th><th>企業名</th><th>予測確率</th>';
+            html += '<th>最新株価</th><th>RSI_9</th><th>VWAP_20d</th><th>ADX</th>';
+            html += '</tr></thead><tbody>';
+
+            predictions.forEach((pred, index) => {
+                const stock = state.allStocks.find(s => s.code === pred.code);
+                const name = stock ? stock.name : '---';
+                
+                let predClass = 'prediction-low';
+                if (pred.prediction > 0.7) predClass = 'prediction-high';
+                else if (pred.prediction > 0.5) predClass = 'prediction-medium';
+
+                html += '<tr>';
+                html += `<td>${index + 1}</td>`;
+                html += `<td>${pred.code}</td>`;
+                html += `<td>${name}</td>`;
+                html += `<td class="${predClass}">${(pred.prediction * 100).toFixed(2)}%</td>`;
+                html += `<td>${pred.latest_price ? pred.latest_price.toFixed(0) + '円' : '---'}</td>`;
+                html += `<td>${pred.rsi_9 ? pred.rsi_9.toFixed(1) : '---'}</td>`;
+                html += `<td>${pred.vwap_20d ? pred.vwap_20d.toFixed(0) : '---'}</td>`;
+                html += `<td>${pred.adx ? pred.adx.toFixed(1) : '---'}</td>`;
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+
+            document.getElementById('ai-results-body').innerHTML = html;
+            document.getElementById('ai-results-modal').classList.add('active');
+        }
+
+        function updateChartWithAIPrediction(code) {
+            const pred = state.aiPredictions[code];
+            if (!pred) return;
+
+            const card = document.getElementById(`chart-${code}`);
+            if (!card) return;
+
+            const titleRow = card.querySelector('.chart-title-row');
+            if (!titleRow) return;
+
+            // AI予測バッジを追加
+            let badge = titleRow.querySelector('.chart-ai-badge');
+            if (!badge) {
+                badge = document.createElement('span');
+                badge.className = 'chart-ai-badge';
+                titleRow.appendChild(badge);
+            }
+            badge.textContent = `AI: ${(pred.prediction * 100).toFixed(1)}%`;
+        }
+
+        async function selectByIndustry(industry) {
+            try {
+                showLoading(true, `「${industry}」の銘柄データを取得中...`);
+                
+                const response = await fetch(`/api/industry/${encodeURIComponent(industry)}`);
+                const data = await response.json();
+
+                const stocksToAdd = data.stocks;
+                
+                for (let i = 0; i < stocksToAdd.length; i++) {
+                    const stock = stocksToAdd[i];
+                    if (!state.selectedCodes.includes(stock.code)) {
+                        showLoading(true, `${stock.code} (${i + 1}/${stocksToAdd.length}) を取得中...`);
+                        state.selectedCodes.push(stock.code);
+                        await addChart(stock.code);
+                        await sleep(500);
+                    }
+                }
+
+                showLoading(true, '平均インデックスを計算中...');
+                renderSelectedList();
+                await updateAggregateChart();
+                
+                showLoading(false);
+                alert(`「${industry}」の${stocksToAdd.length}銘柄を追加しました`);
+            } catch (error) {
+                console.error('Industry selection error:', error);
+                showLoading(false);
+                alert('エラーが発生しました');
+            }
+        }
+
+        async function selectBySize(size) {
+            try {
+                showLoading(true, `「${size}」の銘柄データを取得中...`);
+                
+                const response = await fetch(`/api/size/${encodeURIComponent(size)}`);
+                const data = await response.json();
+
+                const stocksToAdd = data.stocks;
+                
+                for (let i = 0; i < stocksToAdd.length; i++) {
+                    const stock = stocksToAdd[i];
+                    if (!state.selectedCodes.includes(stock.code)) {
+                        showLoading(true, `${stock.code} (${i + 1}/${stocksToAdd.length}) を取得中...`);
+                        state.selectedCodes.push(stock.code);
+                        await addChart(stock.code);
+                        await sleep(500);
+                    }
+                }
+
+                showLoading(true, '平均インデックスを計算中...');
+                renderSelectedList();
+                await updateAggregateChart();
+                
+                showLoading(false);
+                alert(`「${size}」の${stocksToAdd.length}銘柄を追加しました`);
+            } catch (error) {
+                console.error('Size selection error:', error);
+                showLoading(false);
+                alert('エラーが発生しました');
+            }
+        }
+
+        async function addChart(code) {
+            try {
+                const container = document.getElementById('chart-container');
+                
+                const existingCard = document.getElementById(`chart-${code}`);
+                if (existingCard) {
+                    existingCard.remove();
+                    delete state.charts[code];
+                }
+                
+                const card = document.createElement('div');
+                card.className = 'chart-card';
+                card.id = `chart-${code}`;
+
+                const stock = state.allStocks.find(s => s.code === code);
+                const name = stock ? stock.name : code;
+
+                card.innerHTML = `
+                    <div class="chart-header">
+                        <div class="chart-info">
+                            <div class="chart-title-row">
+                                <div class="chart-code">${code}</div>
+                                <div class="chart-name">${name}</div>
+                            </div>
+                            <div class="chart-stats" id="stats-${code}">
+                                <span class="stat-item"><span class="stat-label">現在:</span><span class="stat-value">---</span></span>
+                                <span class="stat-item"><span class="stat-label">前日比:</span><span class="stat-value">---</span></span>
+                                <span class="stat-item"><span class="stat-label">期間騰落率:</span><span class="stat-value">---</span></span>
+                            </div>
+                        </div>
+                        <button class="chart-close-btn" onclick="removeChart('${code}')" title="削除">×</button>
+                    </div>
+                    <div class="chart-canvas-wrapper">
+                        <div class="price-chart">
+                            <canvas id="canvas-price-${code}"></canvas>
+                            <div class="tooltip" id="tooltip-price-${code}"></div>
+                        </div>
+                        <div class="volume-chart">
+                            <canvas id="canvas-volume-${code}"></canvas>
+                            <div class="tooltip" id="tooltip-volume-${code}"></div>
+                        </div>
+                    </div>
+                    <div class="indicator-panel">
+                        <label class="indicator-checkbox">
+                            <input type="checkbox" class="ma20" data-code="${code}" />
+                            MA20
+                        </label>
+                        <label class="indicator-checkbox">
+                            <input type="checkbox" class="ma50" data-code="${code}" />
+                            MA50
+                        </label>
+                        <label class="indicator-checkbox">
+                            <input type="checkbox" class="bb" data-code="${code}" />
+                            BB (期間:
+                            <input type="number" class="bb-period" data-code="${code}" value="20" min="5" max="100" />
+                            )
+                        </label>
+                        <label class="indicator-checkbox">
+                            <input type="checkbox" class="vwap" data-code="${code}" />
+                            VWAP
+                        </label>
+                    </div>
+                `;
+
+                container.appendChild(card);
+
+                const response = await fetch(`/api/chart/${code}?period=${state.period}&interval=${state.interval}`);
+                
+                if (!response.ok) {
+                    console.error(`Failed to fetch chart for ${code}`);
+                    card.remove();
+                    return;
+                }
+                
+                const chartData = await response.json();
+
+                state.charts[code] = {
+                    priceCanvas: document.getElementById(`canvas-price-${code}`),
+                    volumeCanvas: document.getElementById(`canvas-volume-${code}`),
+                    priceTooltip: document.getElementById(`tooltip-price-${code}`),
+                    volumeTooltip: document.getElementById(`tooltip-volume-${code}`),
+                    data: chartData.data,
+                    indicators: {}
+                };
+
+                updateChartStats(code);
+                setupChartMouseEvents(code);
+                drawChart(code);
+
+                // AI予測があれば追加
+                updateChartWithAIPrediction(code);
+
+                card.querySelectorAll('.indicator-panel input').forEach(input => {
+                    input.addEventListener('change', () => drawChart(code));
+                });
+
+                card.querySelectorAll('.bb-period').forEach(input => {
+                    input.addEventListener('change', () => drawChart(code));
+                });
+
+                updateSelectedCount();
+            } catch (error) {
+                console.error(`Error adding chart for ${code}:`, error);
+                const card = document.getElementById(`chart-${code}`);
+                if (card) card.remove();
+            }
+        }
+
+        function updateChartStats(code) {
+            const chartObj = state.charts[code];
+            const data = chartObj.data;
+            
+            if (data && data.length > 0) {
+                const currentPrice = data[data.length - 1].c;
+                const prevPrice = data.length > 1 ? data[data.length - 2].c : currentPrice;
+                const firstPrice = data[0].c;
+                
+                const dayChange = currentPrice - prevPrice;
+                const dayChangePercent = ((dayChange / prevPrice) * 100);
+                const periodChange = ((currentPrice - firstPrice) / firstPrice) * 100;
+                
+                const statsDiv = document.getElementById(`stats-${code}`);
+                if (statsDiv) {
+                    const dayChangeClass = dayChange >= 0 ? 'positive' : 'negative';
+                    const periodChangeClass = periodChange >= 0 ? 'positive' : 'negative';
+                    
+                    statsDiv.innerHTML = `
+                        <span class="stat-item"><span class="stat-label">現在:</span><span class="stat-value">${currentPrice.toFixed(2)}</span></span>
+                        <span class="stat-item"><span class="stat-label">前日比:</span><span class="stat-value ${dayChangeClass}">${dayChange >= 0 ? '+' : ''}${dayChange.toFixed(2)} (${dayChangePercent >= 0 ? '+' : ''}${dayChangePercent.toFixed(2)}%)</span></span>
+                        <span class="stat-item"><span class="stat-label">期間騰落率:</span><span class="stat-value ${periodChangeClass}">${periodChange >= 0 ? '+' : ''}${periodChange.toFixed(2)}%</span></span>
+                    `;
+                }
+            }
+        }
+
+        function setupChartMouseEvents(code) {
+            const chartObj = state.charts[code];
+            const priceCanvas = chartObj.priceCanvas;
+            const volumeCanvas = chartObj.volumeCanvas;
+
+            priceCanvas.addEventListener('mousemove', (e) => {
+                handleChartMouseMove(code, e, 'price');
+            });
+
+            priceCanvas.addEventListener('mouseleave', () => {
+                chartObj.priceTooltip.classList.remove('active');
+            });
+
+            volumeCanvas.addEventListener('mousemove', (e) => {
+                handleChartMouseMove(code, e, 'volume');
+            });
+
+            volumeCanvas.addEventListener('mouseleave', () => {
+                chartObj.volumeTooltip.classList.remove('active');
+            });
+        }
+
+        function handleChartMouseMove(code, event, type) {
+            const chartObj = state.charts[code];
+            if (!chartObj || !chartObj.data) return;
+            
+            const canvas = type === 'price' ? chartObj.priceCanvas : chartObj.volumeCanvas;
+            const tooltip = type === 'price' ? chartObj.priceTooltip : chartObj.volumeTooltip;
+            const rect = canvas.getBoundingClientRect();
+            
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+
+            const cssWidth = rect.width;
+            const padding = 60;
+            const chartWidth = cssWidth - padding * 2;
+
+            if (x < padding || x > cssWidth - padding) {
+                tooltip.classList.remove('active');
+                return;
+            }
+
+            const dataIndex = Math.floor(((x - padding) / chartWidth) * chartObj.data.length);
+            
+            if (dataIndex >= 0 && dataIndex < chartObj.data.length) {
+                const candle = chartObj.data[dataIndex];
+                const date = new Date(candle.t * 1000);
+                const dateStr = `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
+
+                tooltip.innerHTML = `
+                    <strong>${dateStr}</strong><br>
+                    始値: ${candle.o.toFixed(2)}<br>
+                    高値: ${candle.h.toFixed(2)}<br>
+                    安値: ${candle.l.toFixed(2)}<br>
+                    終値: ${candle.c.toFixed(2)}<br>
+                    出来高: ${(candle.v / 1000).toFixed(0)}K
+                `;
+
+                tooltip.style.left = Math.min(x + 10, cssWidth - 150) + 'px';
+                tooltip.style.top = Math.min(y + 10, rect.height - 120) + 'px';
+                tooltip.classList.add('active');
+            } else {
+                tooltip.classList.remove('active');
+            }
+        }
+
+        function removeChart(code) {
+            const card = document.getElementById(`chart-${code}`);
+            if (card) {
+                card.remove();
+            }
+            delete state.charts[code];
+            delete state.aiPredictions[code];
+            state.selectedCodes = state.selectedCodes.filter(c => c !== code);
+            renderStockList(document.getElementById('select-search').value);
+            renderSelectedList();
+            updateAggregateChart();
+        }
+
+        function drawChart(code) {
+            const chartObj = state.charts[code];
+            if (!chartObj || !chartObj.data || chartObj.data.length === 0) return;
+
+            drawPriceChart(code);
+            drawVolumeChart(code);
+        }
+
+        function drawPriceChart(code) {
+            const chartObj = state.charts[code];
+            const canvas = chartObj.priceCanvas;
+            const ctx = canvas.getContext('2d');
+            const width = canvas.parentElement.clientWidth;
+            const height = canvas.parentElement.clientHeight;
+
+            canvas.width = width * window.devicePixelRatio;
+            canvas.height = height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+            const data = chartObj.data;
+            const padding = 60;
+            const chartWidth = width - padding * 2;
+            const chartHeight = height - padding - 20;
+
+            let minPrice = Infinity, maxPrice = -Infinity;
+            data.forEach(candle => {
+                minPrice = Math.min(minPrice, candle.l);
+                maxPrice = Math.max(maxPrice, candle.h);
+            });
+
+            const priceScale = calculateNiceScale(minPrice, maxPrice, 6);
+            const scaledMinPrice = priceScale.min;
+            const scaledMaxPrice = priceScale.max;
+            const priceRange = scaledMaxPrice - scaledMinPrice;
+
+            const candleWidth = Math.max(2, chartWidth / data.length * 0.8);
+            const candleSpacing = chartWidth / data.length;
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 1;
+            ctx.fillStyle = '#666';
+            ctx.font = '11px sans-serif';
+            ctx.textAlign = 'left';
+
+            for (let i = 0; i < priceScale.ticks; i++) {
+                const price = scaledMinPrice + (i * priceScale.tickSpacing);
+                const y = padding + chartHeight - ((price - scaledMinPrice) / priceRange) * chartHeight;
+                
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(width - padding, y);
+                ctx.stroke();
+
+                ctx.fillText(price.toFixed(0), width - padding + 5, y + 4);
+            }
+
+            data.forEach((candle, index) => {
+                const x = padding + index * candleSpacing + candleSpacing / 2;
+                const y_open = padding + chartHeight - ((candle.o - scaledMinPrice) / priceRange) * chartHeight;
+                const y_close = padding + chartHeight - ((candle.c - scaledMinPrice) / priceRange) * chartHeight;
+                const y_high = padding + chartHeight - ((candle.h - scaledMinPrice) / priceRange) * chartHeight;
+                const y_low = padding + chartHeight - ((candle.l - scaledMinPrice) / priceRange) * chartHeight;
+
+                ctx.strokeStyle = candle.c >= candle.o ? '#ff0000' : '#00aa00';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(x, y_high);
+                ctx.lineTo(x, y_low);
+                ctx.stroke();
+
+                const bodyTop = Math.min(y_open, y_close);
+                const bodyBottom = Math.max(y_open, y_close);
+                const bodyHeight = Math.max(2, bodyBottom - bodyTop);
+
+                ctx.fillStyle = candle.c >= candle.o ? '#ff0000' : '#00aa00';
+                ctx.fillRect(x - candleWidth / 2, bodyTop, candleWidth, bodyHeight);
+
+                ctx.strokeStyle = candle.c >= candle.o ? '#ff0000' : '#00aa00';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x - candleWidth / 2, bodyTop, candleWidth, bodyHeight);
+            });
+
+            const card = document.getElementById(`chart-${code}`);
+            const ma20Checkbox = card.querySelector('.ma20');
+            const ma50Checkbox = card.querySelector('.ma50');
+            const bbCheckbox = card.querySelector('.bb');
+            const vwapCheckbox = card.querySelector('.vwap');
+            const bbPeriodInput = card.querySelector('.bb-period');
+
+            if (ma20Checkbox.checked) {
+                drawMA(ctx, data, 20, padding, chartHeight, scaledMinPrice, priceRange, width, candleSpacing, '#0066ff');
+            }
+
+            if (ma50Checkbox.checked) {
+                drawMA(ctx, data, 50, padding, chartHeight, scaledMinPrice, priceRange, width, candleSpacing, '#ff6600');
+            }
+
+            if (vwapCheckbox.checked) {
+                drawVWAP(ctx, data, padding, chartHeight, scaledMinPrice, priceRange, width, candleSpacing);
+            }
+
+            if (bbCheckbox.checked) {
+                const period = parseInt(bbPeriodInput.value) || 20;
+                drawBollingerBands(ctx, data, period, padding, chartHeight, scaledMinPrice, priceRange, width, candleSpacing);
+            }
+
+            ctx.fillStyle = '#666';
+            ctx.font = '11px sans-serif';
+            ctx.textAlign = 'center';
+            for (let i = 0; i < data.length; i += Math.ceil(data.length / 5)) {
+                const x = padding + i * candleSpacing + candleSpacing / 2;
+                const timestamp = new Date(data[i].t * 1000);
+                const label = `${timestamp.getMonth() + 1}/${timestamp.getDate()}`;
+                ctx.fillText(label, x, height - 5);
+            }
+        }
+
+        function drawVolumeChart(code) {
+            const chartObj = state.charts[code];
+            const canvas = chartObj.volumeCanvas;
+            const ctx = canvas.getContext('2d');
+            const width = canvas.parentElement.clientWidth;
+            const height = canvas.parentElement.clientHeight;
+
+            canvas.width = width * window.devicePixelRatio;
+            canvas.height = height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+            const data = chartObj.data;
+            const padding = 60;
+            const chartWidth = width - padding * 2;
+            const chartHeight = height - 5;
+
+            const maxVolume = Math.max(...data.map(d => d.v));
+
+            const candleWidth = Math.max(2, chartWidth / data.length * 0.8);
+            const candleSpacing = chartWidth / data.length;
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, width, height);
+
+            data.forEach((candle, index) => {
+                const x = padding + index * candleSpacing + candleSpacing / 2;
+                const barHeight = Math.min((candle.v / maxVolume) * (chartHeight * 0.9), chartHeight - 5);
+                const y = chartHeight - barHeight;
+
+                ctx.fillStyle = candle.c >= candle.o ? 'rgba(255, 0, 0, 0.5)' : 'rgba(0, 170, 0, 0.5)';
+                ctx.fillRect(x - candleWidth / 2, y, candleWidth, barHeight);
+            });
+
+            ctx.fillStyle = '#666';
+            ctx.font = '10px sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText((maxVolume / 1000).toFixed(0) + 'K', width - padding + 5, 12);
+        }
+
+        function drawMA(ctx, data, period, padding, chartHeight, minPrice, priceRange, width, candleSpacing, color) {
+            const prices = data.map(d => d.c);
+            const ma = calculateMA(prices, period);
+
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+
+            let firstPoint = true;
+            ma.forEach((value, index) => {
+                if (value === null) return;
+
+                const x = padding + index * candleSpacing + candleSpacing / 2;
+                const y = padding + chartHeight - ((value - minPrice) / priceRange) * chartHeight;
+
+                if (firstPoint) {
+                    ctx.moveTo(x, y);
+                    firstPoint = false;
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+
+            ctx.stroke();
+        }
+
+        function drawVWAP(ctx, data, padding, chartHeight, minPrice, priceRange, width, candleSpacing) {
+            const vwap = calculateVWAP(data);
+
+            ctx.strokeStyle = '#9900ff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+
+            let firstPoint = true;
+            vwap.forEach((value, index) => {
+                if (value === null) return;
+
+                const x = padding + index * candleSpacing + candleSpacing / 2;
+                const y = padding + chartHeight - ((value - minPrice) / priceRange) * chartHeight;
+
+                if (firstPoint) {
+                    ctx.moveTo(x, y);
+                    firstPoint = false;
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+
+            ctx.stroke();
+        }
+
+        function drawBollingerBands(ctx, data, period, padding, chartHeight, minPrice, priceRange, width, candleSpacing) {
+            const prices = data.map(d => d.c);
+            const { ma, upper, lower } = calculateBollingerBands(prices, period, 2);
+
+            ctx.strokeStyle = 'rgba(100, 150, 255, 0.5)';
+            ctx.lineWidth = 1;
+
+            ctx.beginPath();
+            let firstPoint = true;
+            upper.forEach((value, index) => {
+                if (value === null) return;
+                const x = padding + index * candleSpacing + candleSpacing / 2;
+                const y = padding + chartHeight - ((value - minPrice) / priceRange) * chartHeight;
+                if (firstPoint) {
+                    ctx.moveTo(x, y);
+                    firstPoint = false;
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+            ctx.stroke();
+
+            ctx.beginPath();
+            firstPoint = true;
+            lower.forEach((value, index) => {
+                if (value === null) return;
+                const x = padding + index * candleSpacing + candleSpacing / 2;
+                const y = padding + chartHeight - ((value - minPrice) / priceRange) * chartHeight;
+                if (firstPoint) {
+                    ctx.moveTo(x, y);
+                    firstPoint = false;
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+            ctx.stroke();
+        }
+
+        function calculateMA(prices, period) {
+            const result = new Array(prices.length).fill(null);
+            for (let i = period - 1; i < prices.length; i++) {
+                let sum = 0;
+                for (let j = 0; j < period; j++) {
+                    sum += prices[i - j];
+                }
+                result[i] = sum / period;
+            }
+            return result;
+        }
+
+        function calculateVWAP(data) {
+            const result = new Array(data.length).fill(null);
+            let cumulativeTP = 0;
+            let cumulativeVolume = 0;
+
+            data.forEach((candle, index) => {
+                const tp = (candle.h + candle.l + candle.c) / 3;
+                cumulativeTP += tp * candle.v;
+                cumulativeVolume += candle.v;
+                result[index] = cumulativeTP / cumulativeVolume;
+            });
+
+            return result;
+        }
+
+        function calculateBollingerBands(prices, period, stdDev) {
+            const ma = calculateMA(prices, period);
+            const upper = new Array(prices.length).fill(null);
+            const lower = new Array(prices.length).fill(null);
+
+            for (let i = period - 1; i < prices.length; i++) {
+                let sumSquares = 0;
+                for (let j = 0; j < period; j++) {
+                    const diff = prices[i - j] - ma[i];
+                    sumSquares += diff * diff;
+                }
+                const std = Math.sqrt(sumSquares / period);
+                upper[i] = ma[i] + std * stdDev;
+                lower[i] = ma[i] - std * stdDev;
+            }
+
+            return { ma, upper, lower };
+        }
+
+        function updateAggregateStats(data) {
+            if (!data || data.length === 0) return;
+            
+            const currentValue = data[data.length - 1].c;
+            const prevValue = data.length > 1 ? data[data.length - 2].c : currentValue;
+            const firstValue = data[0].c;
+            
+            const dayChange = currentValue - prevValue;
+            const dayChangePercent = ((dayChange / prevValue) * 100);
+            const periodChange = ((currentValue - firstValue) / firstValue) * 100;
+            
+            const dayChangeClass = dayChange >= 0 ? 'positive' : 'negative';
+            const periodChangeClass = periodChange >= 0 ? 'positive' : 'negative';
+            
+            const headerElement = document.querySelector('.aggregate-header');
+            if (headerElement) {
+                headerElement.innerHTML = `
+                    📊 選択銘柄の平均インデックス
+                    <span style="margin-left: 15px; font-size: 11px; font-weight: normal;">
+                        <span style="color: #333;">現在: <strong>${currentValue.toFixed(2)}</strong></span>
+                        <span style="margin-left: 10px;" class="index-change ${dayChangeClass}">
+                            前日比: ${dayChange >= 0 ? '+' : ''}${dayChangePercent.toFixed(2)}%
+                        </span>
+                        <span style="margin-left: 10px;" class="index-change ${periodChangeClass}">
+                            期間: ${periodChange >= 0 ? '+' : ''}${periodChange.toFixed(2)}%
+                        </span>
+                    </span>
+                `;
+            }
+        }
+
+        async function updateAggregateChart() {
+            const aggregateSection = document.getElementById('aggregate-chart');
+            
+            if (state.selectedCodes.length < 2) {
+                aggregateSection.classList.remove('active');
+                return;
+            }
+
+            aggregateSection.classList.add('active');
+
+            try {
+                const codes = state.selectedCodes.join(',');
+                const response = await fetch(`/api/aggregate?codes=${codes}`);
+                const data = await response.json();
+
+                if (data.data && data.data.length > 0) {
+                    updateAggregateStats(data.data);
+                    drawAggregateChart(data.data);
+                }
+            } catch (error) {
+                console.error('Error updating aggregate chart:', error);
+            }
+        }
+
+        function drawAggregateChart(data) {
+            const canvas = document.getElementById('aggregate-canvas');
+            const ctx = canvas.getContext('2d');
+            const width = canvas.parentElement.clientWidth;
+            const height = 140;
+
+            canvas.width = width * window.devicePixelRatio;
+            canvas.height = height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+            const padding = 50;
+            const chartWidth = width - padding * 2;
+            const chartHeight = height - padding - 15;
+
+            const prices = data.map(d => d.c);
+            let minPrice = Math.min(...prices);
+            let maxPrice = Math.max(...prices);
+
+            const priceScale = calculateNiceScale(minPrice, maxPrice, 5);
+            const scaledMinPrice = priceScale.min;
+            const scaledMaxPrice = priceScale.max;
+            const priceRange = scaledMaxPrice - scaledMinPrice;
+
+            const pointSpacing = chartWidth / data.length;
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 1;
+            ctx.fillStyle = '#666';
+            ctx.font = '10px sans-serif';
+            ctx.textAlign = 'right';
+
+            for (let i = 0; i < priceScale.ticks; i++) {
+                const price = scaledMinPrice + (i * priceScale.tickSpacing);
+                const y = padding + chartHeight - ((price - scaledMinPrice) / priceRange) * chartHeight;
+                
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(width - padding, y);
+                ctx.stroke();
+
+                ctx.fillText(price.toFixed(0), padding - 10, y + 4);
+            }
+
+            ctx.strokeStyle = '#1a73e8';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+
+            data.forEach((point, index) => {
+                const x = padding + index * pointSpacing;
+                const y = padding + chartHeight - ((point.c - scaledMinPrice) / priceRange) * chartHeight;
+
+                if (index === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+
+            ctx.stroke();
+
+            ctx.lineTo(padding + (data.length - 1) * pointSpacing, padding + chartHeight);
+            ctx.lineTo(padding, padding + chartHeight);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(26, 115, 232, 0.1)';
+            ctx.fill();
+        }
+
+        function updateGridColumns() {
+            const container = document.getElementById('chart-container');
+            container.classList.remove('chart-grid-1', 'chart-grid-2', 'chart-grid-3', 'chart-grid-4');
+            container.classList.add(`chart-grid-${state.gridColumns}`);
+        }
+
+        async function reloadAllCharts() {
+            if (state.isLoading) return;
+            
+            const codes = [...state.selectedCodes];
+            
+            if (codes.length === 0) return;
+            
+            showLoading(true, 'チャートを再読み込み中...');
+            
+            const container = document.getElementById('chart-container');
+            container.innerHTML = '';
+            state.charts = {};
+            
+            for (let i = 0; i < codes.length; i++) {
+                showLoading(true, `${codes[i]} (${i + 1}/${codes.length}) を再読み込み中...`);
+                await addChart(codes[i]);
+                await sleep(500);
+            }
+            
+            showLoading(true, '平均インデックスを計算中...');
+            await updateAggregateChart();
+            
+            showLoading(false);
+        }
+
+        function clearAll() {
+            state.selectedCodes = [];
+            state.charts = {};
+            state.aiPredictions = {};
+            document.getElementById('chart-container').innerHTML = '';
+            document.getElementById('aggregate-chart').classList.remove('active');
+            renderStockList();
+            renderSelectedList();
+        }
+
+        async function loadIndices() {
+            const indices = [
+                { name: '日経225', code: 'nikkei' },
+                { name: 'TOPIX', code: 'topix' },
+                { name: 'S&P500', code: 'sp500' },
+                { name: 'NASDAQ', code: 'nasdaq' },
+                { name: 'VIX', code: 'vix' },
+                { name: 'USD/JPY', code: 'jpy_usd' },
+                { name: 'EUR/JPY', code: 'eur_jpy' }
+            ];
+
+            const container = document.getElementById('index-list');
+            container.innerHTML = '';
+
+            for (const index of indices) {
+                try {
+                    const response = await fetch(`/api/index/${index.code}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.data && data.data.length > 0) {
+                            const latestValue = data.data[data.data.length - 1].c;
+                            const prevValue = data.data.length > 1 ? data.data[data.data.length - 2].c : latestValue;
+                            const firstValue = data.data[0].c;
+                            
+                            const dayChange = latestValue - prevValue;
+                            const dayChangePercent = ((dayChange / prevValue) * 100);
+                            const periodChange = ((latestValue - firstValue) / firstValue) * 100;
+                            
+                            const dayChangeClass = dayChange >= 0 ? 'positive' : 'negative';
+                            const periodChangeClass = periodChange >= 0 ? 'positive' : 'negative';
+                            
+                            const item = document.createElement('div');
+                            item.className = 'index-item';
+                            item.innerHTML = `
+                                ${index.name}: <span class="index-value">${latestValue.toFixed(2)}</span>
+                                <span class="index-change ${dayChangeClass}">${dayChange >= 0 ? '+' : ''}${dayChangePercent.toFixed(2)}%</span>
+                                <span class="index-change ${periodChangeClass}">(${periodChange >= 0 ? '+' : ''}${periodChange.toFixed(2)}%)</span>
+                            `;
+                            container.appendChild(item);
+                        }
+                    }
+                } catch (error) {
+                    console.error(`Error loading index ${index.code}`);
+                }
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
