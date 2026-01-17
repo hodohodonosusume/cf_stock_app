@@ -4,6 +4,7 @@ import numpy as np
 import yfinance as yf
 from datetime import datetime, timedelta
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import pickle
 import os
 
@@ -77,7 +78,9 @@ def load_predictor():
 
 
 @st.cache_data(ttl=3600)
-def get_chart_data(code: str, interval: str = "1d", period: str = "1y"):
+def get_chart_data(
+    code: str, interval: str = "1d", period: str = "1y", max_bars: int = 90
+):
     """銘柄チャートデータを取得"""
     try:
         interval_map = {
@@ -107,12 +110,13 @@ def get_chart_data(code: str, interval: str = "1d", period: str = "1y"):
             df = df[["Open", "High", "Low", "Close", "Volume"]]
             # 期間に合わせて末尾N本だけにトリミング
             if interval == "1d":
-                max_bars = days
+                bars = days
             elif interval == "1w":
-                max_bars = days // 5
+                bars = days // 5
             else:
-                max_bars = days // 20
-            return df.tail(max_bars)
+                bars = days // 20
+            bars = min(bars, max_bars)
+            return df.tail(bars)
         return pd.DataFrame()
     except Exception as e:
         st.warning(f"チャートデータ取得エラー ({code}): {e}")
@@ -243,28 +247,248 @@ def get_ai_prediction(code: str):
 
 
 def plot_candlestick(df: pd.DataFrame, title: str = ""):
+    return build_candlestick_figure(df, title, [])
+
+
+def add_moving_average(df: pd.DataFrame, window: int, kind: str = "sma"):
+    if kind == "ema":
+        return df["Close"].ewm(span=window, adjust=False).mean()
+    if kind == "wma":
+        weights = np.arange(1, window + 1)
+        return (
+            df["Close"]
+            .rolling(window)
+            .apply(lambda x: np.dot(x, weights) / weights.sum(), raw=True)
+        )
+    return df["Close"].rolling(window).mean()
+
+
+def add_rsi(df: pd.DataFrame, window: int = 14):
+    delta = df["Close"].diff()
+    gain = delta.where(delta > 0, 0).rolling(window).mean()
+    loss = -delta.where(delta < 0, 0).rolling(window).mean()
+    rs = gain / loss.replace(0, np.nan)
+    return 100 - (100 / (1 + rs))
+
+
+def add_macd(df: pd.DataFrame, fast: int = 12, slow: int = 26, signal: int = 9):
+    ema_fast = df["Close"].ewm(span=fast, adjust=False).mean()
+    ema_slow = df["Close"].ewm(span=slow, adjust=False).mean()
+    macd = ema_fast - ema_slow
+    signal_line = macd.ewm(span=signal, adjust=False).mean()
+    hist = macd - signal_line
+    return macd, signal_line, hist
+
+
+def add_stochastic(df: pd.DataFrame, k: int = 14, d: int = 3):
+    low_min = df["Low"].rolling(k).min()
+    high_max = df["High"].rolling(k).max()
+    percent_k = 100 * (df["Close"] - low_min) / (high_max - low_min)
+    percent_d = percent_k.rolling(d).mean()
+    return percent_k, percent_d
+
+
+def add_atr(df: pd.DataFrame, window: int = 14):
+    high_low = df["High"] - df["Low"]
+    high_close = (df["High"] - df["Close"].shift()).abs()
+    low_close = (df["Low"] - df["Close"].shift()).abs()
+    tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+    return tr.rolling(window).mean()
+
+
+def add_adx(df: pd.DataFrame, window: int = 14):
+    up_move = df["High"].diff()
+    down_move = -df["Low"].diff()
+    plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0.0)
+    minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0.0)
+
+    tr = add_atr(df, 1)
+    plus_di = 100 * pd.Series(plus_dm, index=df.index).rolling(window).sum() / tr.rolling(
+        window
+    ).sum()
+    minus_di = (
+        100 * pd.Series(minus_dm, index=df.index).rolling(window).sum() / tr.rolling(window).sum()
+    )
+    dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di)
+    adx = dx.rolling(window).mean()
+    return adx
+
+
+def add_obv(df: pd.DataFrame):
+    direction = np.sign(df["Close"].diff()).fillna(0)
+    return (direction * df["Volume"]).cumsum()
+
+
+def add_vwap(df: pd.DataFrame):
+    typical = (df["High"] + df["Low"] + df["Close"]) / 3
+    return (typical * df["Volume"]).cumsum() / df["Volume"].cumsum()
+
+
+def add_ichimoku(df: pd.DataFrame):
+    conversion = (df["High"].rolling(9).max() + df["Low"].rolling(9).min()) / 2
+    base = (df["High"].rolling(26).max() + df["Low"].rolling(26).min()) / 2
+    span_a = ((conversion + base) / 2).shift(26)
+    span_b = ((df["High"].rolling(52).max() + df["Low"].rolling(52).min()) / 2).shift(26)
+    lagging = df["Close"].shift(-26)
+    return conversion, base, span_a, span_b, lagging
+
+
+def build_candlestick_figure(df: pd.DataFrame, title: str, indicators: list[str]):
     if df is None or df.empty:
         return None
-    fig = go.Figure(
-        data=[
-            go.Candlestick(
-                x=df.index,
-                open=df["Open"],
-                high=df["High"],
-                low=df["Low"],
-                close=df["Close"],
-                name="価格",
-            )
-        ]
+
+    has_oscillator = any(
+        ind in indicators
+        for ind in ["RSI(14)", "MACD", "Stochastic", "ATR(14)", "ADX(14)", "OBV"]
     )
+    rows = 3 if has_oscillator else 2
+    row_heights = [0.6, 0.2, 0.2] if rows == 3 else [0.7, 0.3]
+
+    fig = make_subplots(
+        rows=rows,
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.02,
+        row_heights=row_heights,
+    )
+    fig.add_trace(
+        go.Candlestick(
+            x=df.index,
+            open=df["Open"],
+            high=df["High"],
+            low=df["Low"],
+            close=df["Close"],
+            name="価格",
+        ),
+        row=1,
+        col=1,
+    )
+
+    color_up = "#26a69a"
+    color_down = "#ef5350"
+    volume_colors = np.where(df["Close"] >= df["Open"], color_up, color_down)
+    fig.add_trace(
+        go.Bar(
+            x=df.index,
+            y=df["Volume"],
+            marker_color=volume_colors,
+            name="出来高",
+            opacity=0.5,
+        ),
+        row=2,
+        col=1,
+    )
+
+    def add_price_trace(series, name, line=None):
+        fig.add_trace(
+            go.Scatter(x=df.index, y=series, mode="lines", name=name, line=line),
+            row=1,
+            col=1,
+        )
+
+    if "SMA(20)" in indicators:
+        add_price_trace(add_moving_average(df, 20, "sma"), "SMA20", {"width": 1.5})
+    if "SMA(50)" in indicators:
+        add_price_trace(add_moving_average(df, 50, "sma"), "SMA50", {"width": 1.5})
+    if "EMA(20)" in indicators:
+        add_price_trace(add_moving_average(df, 20, "ema"), "EMA20", {"width": 1.2})
+    if "WMA(20)" in indicators:
+        add_price_trace(add_moving_average(df, 20, "wma"), "WMA20", {"width": 1.2})
+    if "VWAP" in indicators:
+        add_price_trace(add_vwap(df), "VWAP", {"width": 1.2})
+    if "Bollinger(20)" in indicators:
+        sma = add_moving_average(df, 20, "sma")
+        std = df["Close"].rolling(20).std()
+        add_price_trace(sma + std * 2, "Bollinger Upper", {"dash": "dash"})
+        add_price_trace(sma - std * 2, "Bollinger Lower", {"dash": "dash"})
+    if "Ichimoku" in indicators:
+        conv, base, span_a, span_b, lagging = add_ichimoku(df)
+        add_price_trace(conv, "転換線", {"width": 1.2})
+        add_price_trace(base, "基準線", {"width": 1.2})
+        add_price_trace(span_a, "先行スパンA", {"dash": "dot"})
+        add_price_trace(span_b, "先行スパンB", {"dash": "dot"})
+        add_price_trace(lagging, "遅行スパン", {"dash": "dash"})
+
+    if has_oscillator:
+        osc_row = 3
+        if "RSI(14)" in indicators:
+            fig.add_trace(
+                go.Scatter(x=df.index, y=add_rsi(df), mode="lines", name="RSI(14)"),
+                row=osc_row,
+                col=1,
+            )
+        if "MACD" in indicators:
+            macd, signal, hist = add_macd(df)
+            fig.add_trace(
+                go.Scatter(x=df.index, y=macd, mode="lines", name="MACD"),
+                row=osc_row,
+                col=1,
+            )
+            fig.add_trace(
+                go.Scatter(x=df.index, y=signal, mode="lines", name="Signal"),
+                row=osc_row,
+                col=1,
+            )
+            fig.add_trace(
+                go.Bar(x=df.index, y=hist, name="MACD Hist", opacity=0.4),
+                row=osc_row,
+                col=1,
+            )
+        if "Stochastic" in indicators:
+            percent_k, percent_d = add_stochastic(df)
+            fig.add_trace(
+                go.Scatter(x=df.index, y=percent_k, mode="lines", name="%K"),
+                row=osc_row,
+                col=1,
+            )
+            fig.add_trace(
+                go.Scatter(x=df.index, y=percent_d, mode="lines", name="%D"),
+                row=osc_row,
+                col=1,
+            )
+        if "ATR(14)" in indicators:
+            fig.add_trace(
+                go.Scatter(x=df.index, y=add_atr(df), mode="lines", name="ATR(14)"),
+                row=osc_row,
+                col=1,
+            )
+        if "ADX(14)" in indicators:
+            fig.add_trace(
+                go.Scatter(x=df.index, y=add_adx(df), mode="lines", name="ADX(14)"),
+                row=osc_row,
+                col=1,
+            )
+        if "OBV" in indicators:
+            fig.add_trace(
+                go.Scatter(x=df.index, y=add_obv(df), mode="lines", name="OBV"),
+                row=osc_row,
+                col=1,
+            )
+
     fig.update_layout(
         title=title,
         yaxis_title="株価 (円)",
         xaxis_title="日付",
-        template="plotly_white",
-        height=500,
+        template="plotly_dark",
+        height=650 if rows == 3 else 560,
         hovermode="x unified",
+        dragmode="pan",
+        legend_orientation="h",
+        legend_yanchor="bottom",
+        legend_y=1.02,
+        legend_xanchor="right",
+        legend_x=1,
+        uirevision="chart",
+        margin=dict(l=40, r=20, t=60, b=40),
     )
+    fig.update_xaxes(
+        rangeslider_visible=True,
+        showspikes=True,
+        spikemode="across",
+        spikesnap="cursor",
+        spikedash="dot",
+    )
+    fig.update_yaxes(showspikes=True, spikemode="across")
     return fig
 
 
@@ -451,13 +675,37 @@ with tab_chart:
                 st.cache_data.clear()
                 st.experimental_rerun()
 
+        indicator_options = [
+            "SMA(20)",
+            "SMA(50)",
+            "EMA(20)",
+            "WMA(20)",
+            "VWAP",
+            "Bollinger(20)",
+            "Ichimoku",
+            "RSI(14)",
+            "MACD",
+            "Stochastic",
+            "ATR(14)",
+            "ADX(14)",
+            "OBV",
+        ]
+        selected_indicators = st.multiselect(
+            "テクニカル指標",
+            indicator_options,
+            default=["SMA(20)", "EMA(20)", "RSI(14)"],
+        )
+        st.caption("ローソク足は最大90本まで表示されます。")
+
         charts = []
         for code in st.session_state.selected_stocks:
-            df_c = get_chart_data(code, interval, period)
+            df_c = get_chart_data(code, interval, period, max_bars=90)
             if df_c is not None and not df_c.empty:
                 row = stock_master_df[stock_master_df["コード"] == code]
                 name = row["銘柄名"].iloc[0] if not row.empty else ""
-                fig = plot_candlestick(df_c, f"{code} {name}")
+                fig = build_candlestick_figure(
+                    df_c, f"{code} {name}", selected_indicators
+                )
                 charts.append(fig)
 
         if not charts:
